@@ -7,20 +7,30 @@ on:
 
 jobs:
   deploy:
-    # IMPORTANTE: Le decimos a GitHub que este trabajo debe correr en nuestro runner
     runs-on: self-hosted
 
     steps:
-      # 1. El runner clona el repositorio en su carpeta de trabajo
+      # 1. Clona el repositorio a la carpeta de trabajo temporal del runner
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # 2. Ejecuta los comandos de deploy directamente en el servidor
+      # 2. Copia los archivos privados desde su nueva ubicación permanente
+      - name: Copy private configuration files
+        run: |
+          echo "==> Copiando archivos privados desde ~/self-hosted-secrets..."
+          
+          # Copia el .env desde el "baúl" a la carpeta de trabajo actual
+          cp ~/self-hosted-secrets/.env .
+          
+          # Copia la configuración de authelia desde el "baúl"
+          cp -r ~/self-hosted-secrets/authelia .
+          
+          echo "==> Archivos copiados."
+
+      # 3. Despliega la aplicación
       - name: Deploy Application
         run: |
           echo "==> Desplegando los cambios con Docker Compose..."
-          # El comando se ejecuta desde la raíz del repo clonado
-          # --project-directory especifica dónde está el docker-compose.yaml
           docker compose --project-directory . up -d --pull --force-recreate
           
           echo "==> Limpiando imágenes de Docker antiguas..."
