@@ -54,29 +54,30 @@ services:
       - "traefik.http.routers.authelia.tls.certresolver=letsencrypt"
       - "traefik.http.services.authelia.loadbalancer.server.port=9091"
 
-  filebrowser:
-    image: filebrowser/filebrowser
-    container_name: filebrowser
+  filestash:
+    image: machines/filestash
+    container_name: filestash
     restart: unless-stopped
-    user: "1000:1000"
-    
     environment:
-      - FB_AUTH_METHOD=proxy
-      - FB_AUTH_HEADER=Remote-User
-      
+      # --- ESTA ES LA MAGIA ---
+      # Le decimos a FileStash que la autenticación es manejada por el proxy.
+      - APPLICATION_AUTH_METHOD=proxy
+      # Le decimos que el nombre de usuario viene en la cabecera 'Remote-User'.
+      - APPLICATION_PROXY_AUTH_HEADER=Remote-User
     volumes:
-      - filebrowser_db:/database
-      - ./filebrowser_storage:/srv
+      # Un solo volumen para toda la data y configuración de FileStash.
+      - filestash_data:/app/data
     networks:
       - traefik
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.filebrowser.rule=Host(`files.nuxapower.cl`)"
-      - "traefik.http.routers.filebrowser.service=filebrowser"
-      - "traefik.http.routers.filebrowser.entrypoints=websecure"
-      - "traefik.http.routers.filebrowser.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.filebrowser.middlewares=authelia@docker"
-      - "traefik.http.services.filebrowser.loadbalancer.server.port=80"
+      # Usaremos el mismo subdominio para no tener que cambiar el DNS.
+      - "traefik.http.routers.filestash.rule=Host(`files.nuxapower.cl`)"
+      - "traefik.http.routers.filestash.service=filestash"
+      - "traefik.http.routers.filestash.entrypoints=websecure"
+      - "traefik.http.routers.filestash.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.filestash.middlewares=authelia@docker"
+      - "traefik.http.services.filestash.loadbalancer.server.port=8334"
 
 networks:
   traefik:
@@ -84,5 +85,5 @@ networks:
 
 volumes:
   traefik_acme:
-  filebrowser_db:
   authelia_data:
+  filestash_data:
