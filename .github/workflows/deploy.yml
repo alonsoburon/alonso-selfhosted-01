@@ -1,0 +1,29 @@
+name: Deploy to Hetzner (Self-Hosted Runner)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    # IMPORTANTE: Le decimos a GitHub que este trabajo debe correr en nuestro runner
+    runs-on: self-hosted
+
+    steps:
+      # 1. El runner clona el repositorio en su carpeta de trabajo
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # 2. Ejecuta los comandos de deploy directamente en el servidor
+      - name: Deploy Application
+        run: |
+          echo "==> Desplegando los cambios con Docker Compose..."
+          # El comando se ejecuta desde la raíz del repo clonado
+          # --project-directory especifica dónde está el docker-compose.yaml
+          docker compose --project-directory . up -d --pull --force-recreate
+          
+          echo "==> Limpiando imágenes de Docker antiguas..."
+          docker image prune -f
+          
+          echo "==> ¡Deploy completado!"
