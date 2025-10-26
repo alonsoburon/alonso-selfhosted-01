@@ -1,0 +1,118 @@
+services:
+  watchtower:
+    # ... sin cambios
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  traefik:
+    # ... sin cambios
+    image: traefik:latest
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--log.level=INFO"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_acme:/acme
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${ROOT_DOMAIN}`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.middlewares=authelia"
+      - "traefik.http.middlewares.authelia.forwardauth.address=http://authelia:9091/api/verify?rd=https://auth.${ROOT_DOMAIN}/"
+      - "traefik.http.middlewares.authelia.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authelia.forwardauth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Email,Remote-Name"
+
+  authelia:
+    image: authelia/authelia:latest
+    container_name: authelia
+    restart: unless-stopped
+    volumes:
+      # Montamos la configuración MÍNIMA y la base de datos de usuarios
+      - ./authelia/configuration.yml:/config/configuration.yml:ro
+      - ./authelia/users_database.yml:/config/users_database.yml:ro
+      - authelia_data:/data
+    networks:
+      - traefik
+    environment:
+      # --- VARIABLES DE ENTORNO PARA AUTHELIA ---
+      # Leemos las variables desde el archivo .env y se las pasamos a Authelia
+      # en el formato que espera (AUTHELIA_SECCIÓN_CLAVE=VALOR)
+
+      # Dominio para las cookies
+      - AUTHELIA_SESSION_DOMAIN=${ROOT_DOMAIN}
+      # Secretos
+      - AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET}
+      - AUTHELIA_STORAGE_ENCRYPTION_KEY=${AUTHELIA_STORAGE_ENCRYPTION_KEY}
+      - AUTHELIA_JWT_SECRET=${AUTHELIA_JWT_SECRET}
+
+      # Configuración del servidor
+      - AUTHELIA_SERVER_ADDRESS=tcp://0.0.0.0:9091
+      - AUTHELIA_LOG_LEVEL=info
+
+      # Configuración del notificador
+      - AUTHELIA_NOTIFIER_FILESYSTEM_FILENAME=/data/notifications.log
+
+      # Configuración del almacenamiento
+      - AUTHELIA_STORAGE_LOCAL_PATH=/data/db.sqlite3
+
+      # Necesario para que las reglas de acceso lean la variable ROOT_DOMAIN
+      - ROOT_DOMAIN=${ROOT_DOMAIN}
+      
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authelia.rule=Host(`auth.${ROOT_DOMAIN}`)"
+      - "traefik.http.routers.authelia.service=authelia"
+      - "traefik.http.routers.authelia.entrypoints=websecure"
+      - "traefik.http.routers.authelia.tls.certresolver=letsencrypt"
+      - "traefik.http.services.authelia.loadbalancer.server.port=9091"
+
+  filebrowser:
+    image: filebrowser/filebrowser
+    container_name: filebrowser
+    restart: unless-stopped
+    depends_on:
+      - traefik
+    user: "1000:1000"
+    volumes:
+      - filebrowser_db:/database
+      - ./filebrowser_storage:/srv
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.filebrowser.rule=Host(`files.${ROOT_DOMAIN}`)"
+      - "traefik.http.routers.filebrowser.entrypoints=websecure"
+      - "traefik.http.services.filebrowser.loadbalancer.server.port=80"
+      - "traefik.http.routers.filebrowser.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.filebrowser.middlewares=authelia"
+
+networks:
+  traefik:
+    driver: bridge
+
+volumes:
+  traefik_acme:
+  filebrowser_db:
+  authelia_data:

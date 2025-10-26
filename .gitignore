@@ -1,0 +1,16 @@
+# Ignorar el archivo de variables de entorno que contiene los secretos
+.env
+
+# Directorio de configuración de Authelia.
+# Contiene el users_database.yml con las contraseñas hasheadas.
+/authelia/
+
+# Archivos de la base de datos de File Browser (si los crearas localmente)
+/filebrowser_db/
+
+# Datos persistentes de Traefik (certificados ACME)
+# Es mejor regenerarlos que subirlos.
+/traefik_acme/
+
+# Datos persistentes de Authelia (DB de SQLite, logs)
+/authelia_data/
