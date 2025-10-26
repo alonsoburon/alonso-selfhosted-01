@@ -59,6 +59,11 @@ services:
     container_name: filebrowser
     restart: unless-stopped
     user: "1000:1000"
+    
+    environment:
+      - FB_AUTH_METHOD=proxy
+      - FB_AUTH_HEADER=Remote-User
+      
     volumes:
       - filebrowser_db:/database
       - ./filebrowser_storage:/srv
