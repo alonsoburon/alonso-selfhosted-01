@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   watchtower:
     image: containrrr/watchtower
@@ -13,20 +11,15 @@ services:
     container_name: traefik
     restart: unless-stopped
     command:
-      # --- Dashboard and Logging ---
       - "--api.dashboard=true"
-      - "--log.level=INFO" # Use DEBUG for troubleshooting, INFO for production
-      # --- Docker Provider ---
+      - "--log.level=INFO"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
-      # --- Entrypoints ---
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      # --- HTTP to HTTPS Redirection ---
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-      # --- Let's Encrypt Configuration ---
-      - "--certificatesresolvers.letsencrypt.acme.email=your-email@nuxapower.cl"
+      - "--certificatesresolvers.letsencrypt.acme.email=tu-email@nuxapower.cl"
       - "--certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
