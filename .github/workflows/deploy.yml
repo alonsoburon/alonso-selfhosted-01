@@ -30,8 +30,13 @@ jobs:
       # 3. Despliega la aplicación
       - name: Deploy Application
         run: |
-          echo "==> Desplegando los cambios con Docker Compose..."
-          docker compose --project-directory . up -d --pull --force-recreate
+          echo "==> Actualizando las imágenes de Docker..."
+          # Primero, descarga las imágenes más nuevas especificadas en el docker-compose.yaml
+          docker compose --project-directory . pull
+
+          echo "==> Desplegando los cambios (re-creando contenedores)..."
+          # Ahora, levanta los servicios usando las imágenes recién descargadas
+          docker compose --project-directory . up -d --force-recreate
           
           echo "==> Limpiando imágenes de Docker antiguas..."
           docker image prune -f
