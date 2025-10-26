@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      # --- Dashboard and Logging ---
+      - "--api.dashboard=true"
+      - "--log.level=INFO" # Use DEBUG for troubleshooting, INFO for production
+      # --- Docker Provider ---
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      # --- Entrypoints ---
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # --- HTTP to HTTPS Redirection ---
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      # --- Let's Encrypt Configuration ---
+      - "--certificatesresolvers.letsencrypt.acme.email=your-email@nuxapower.cl"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_acme:/acme
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.nuxapower.cl`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+
+  filebrowser:
+    image: filebrowser/filebrowser
+    container_name: filebrowser
+    restart: unless-stopped
+    depends_on:
+      - traefik
+    user: "1000:1000"
+    volumes:
+      - filebrowser_db:/database
+      - ./filebrowser_storage:/srv
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.filebrowser.rule=Host(`files.nuxapower.cl`)"
+      - "traefik.http.routers.filebrowser.entrypoints=websecure"
+      - "traefik.http.services.filebrowser.loadbalancer.server.port=80"
+      - "traefik.http.routers.filebrowser.tls.certresolver=letsencrypt"
+
+networks:
+  traefik:
+    driver: bridge
+
+volumes:
+  traefik_acme:
+  filebrowser_db:
